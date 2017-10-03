@@ -2,6 +2,8 @@ package me.ccrama.redditslide;
 
 import android.content.SharedPreferences;
 
+import net.dean.jraw.fluent.AuthenticatedUserReference;
+import net.dean.jraw.models.Account;
 import net.dean.jraw.models.CommentSort;
 import net.dean.jraw.paginators.Sorting;
 import net.dean.jraw.paginators.TimePeriod;
@@ -83,6 +85,10 @@ public class SettingValues {
     public static final String PREF_COOKIES                   = "storeCookies";
     public static final String PREF_NIGHT_START               = "nightStart";
     public static final String PREF_NIGHT_END                 = "nightEnd";
+    public static final String PREF_HIDE_NSFW_CONTENT = "showNSFWContent";
+    public static final String PREF_HIDE_NSFW_PREVIEW = "hideNSFWPreviews";
+    public static final String PREF_HIDE_NSFW_COLLECTION = "hideNSFWPreviewsCollection";
+    public static final String PREF_IGNORE_SUB_SETTINGS = "ignoreSub";
 
     public static final String PREF_FULL_COMMENT_OVERRIDE  = "fullCommentOverride";
     public static final String PREF_ALBUM                  = "album";
@@ -107,6 +113,7 @@ public class SettingValues {
     public static final String PREF_PEEK                   = "peek";
     public static final String PREF_LARGE_LINKS            = "largeLinks";
     public static final String PREF_LARGE_DEPTH            = "largeDepth";
+    public static final String PREF_TITLE_TOP            = "titleTop";
 
     public static CreateCardView.CardEnum defaultCardView;
     public static Sorting                 defaultSorting;
@@ -135,28 +142,29 @@ public class SettingValues {
     public static boolean                 colorNavBar;
     public static boolean                 actionbarVisible;
     public static boolean                 actionbarTap;
-    public static boolean                 commentAutoHide;
-    public static boolean                 fullCommentOverride;
-    public static boolean                 lowResAlways;
-    public static boolean                 noImages;
-    public static boolean                 lowResMobile;
-    public static boolean                 blurCheck;
-    public static boolean                 readerNight;
-    public static boolean                 swipeAnywhere;
-    public static boolean                 commentLastVisit;
-    public static boolean                 storeHistory;
-    public static boolean                 storeNSFWHistory;
-    public static boolean                 scrollSeen;
-    public static boolean                 saveButton;
-    public static boolean                 voteGestures;
-    public static boolean                 colorEverywhere;
-    public static boolean                 gif;
-    public static boolean                 colorCommentDepth;
-    public static boolean                 web;
-    public static boolean                 commentVolumeNav;
-    public static boolean                 postNav;
-    public static boolean                 exit;
-    public static boolean                 cropImage;
+    public static boolean commentAutoHide;
+    public static boolean fullCommentOverride;
+    public static boolean lowResAlways;
+    public static boolean noImages;
+    public static boolean lowResMobile;
+    public static boolean blurCheck;
+    public static boolean readerNight;
+    public static boolean swipeAnywhere;
+    public static boolean commentLastVisit;
+    public static boolean storeHistory;
+    public static boolean showNSFWContent;
+    public static boolean storeNSFWHistory;
+    public static boolean scrollSeen;
+    public static boolean saveButton;
+    public static boolean voteGestures;
+    public static boolean colorEverywhere;
+    public static boolean gif;
+    public static boolean colorCommentDepth;
+    public static boolean web;
+    public static boolean commentVolumeNav;
+    public static boolean postNav;
+    public static boolean exit;
+    public static boolean cropImage;
     public static boolean                 smallTag;
     public static boolean                 typeInfoLine;
     public static boolean                 votesInfoLine;
@@ -181,6 +189,8 @@ public class SettingValues {
     public static String  flairFilters;
     public static String  alwaysExternal;
     public static boolean loadImageLq;
+    public static boolean ignoreSubSetting;
+    public static boolean hideNSFWCollection;
 
     public static boolean fastscroll;
     public static boolean fab     = true;
@@ -188,6 +198,7 @@ public class SettingValues {
     public static boolean hideButton;
     public static boolean tabletUI;
     public static boolean customtabs;
+    public static boolean titleTop;
     public static boolean dualPortrait;
     public static boolean singleColumnMultiWindow;
     public static boolean nightMode;
@@ -235,6 +246,9 @@ public class SettingValues {
         timePeriod = TimePeriod.valueOf(settings.getString("timePeriod", "DAY"));
         defaultCommentSorting =
                 CommentSort.valueOf(settings.getString("defaultCommentSortingNew", "CONFIDENCE"));
+        showNSFWContent = prefs.getBoolean(PREF_HIDE_NSFW_CONTENT, true);
+        hideNSFWCollection = prefs.getBoolean(PREF_HIDE_NSFW_COLLECTION, true);
+        ignoreSubSetting = prefs.getBoolean(PREF_IGNORE_SUB_SETTINGS, false);
 
         single = prefs.getBoolean(PREF_SINGLE, false);
         readerNight = prefs.getBoolean(PREF_READER_NIGHT, false);
@@ -277,6 +291,7 @@ public class SettingValues {
 
         typeInfoLine = prefs.getBoolean(PREF_TYPE_INFO_LINE, false);
         votesInfoLine = prefs.getBoolean(PREF_VOTES_INFO_LINE, false);
+        titleTop = prefs.getBoolean(PREF_TITLE_TOP, true);
 
         lqLow = prefs.getBoolean(PREF_LQ_LOW, false);
         lqMid = prefs.getBoolean(PREF_LQ_MID, true);
@@ -307,7 +322,7 @@ public class SettingValues {
         customtabs = prefs.getBoolean(PREF_CUSTOMTABS, false);
         storeHistory = prefs.getBoolean(PREF_STORE_HISTORY, true);
         upvotePercentage = prefs.getBoolean(PREF_UPVOTE_PERCENTAGE, false);
-        storeNSFWHistory = prefs.getBoolean(PREF_STORE_NSFW_HISTORY, true);
+        storeNSFWHistory = prefs.getBoolean(PREF_STORE_NSFW_HISTORY, false);
         scrollSeen = prefs.getBoolean(PREF_SCROLL_SEEN, false);
         synccitName = prefs.getString(SYNCCIT_NAME, "");
         synccitAuth = prefs.getString(SYNCCIT_AUTH, "");
@@ -377,6 +392,9 @@ public class SettingValues {
         prefs.edit().putBoolean("cardtextenabled" + sub.toLowerCase(), checked).apply();
     }
 
+    public static boolean getIsNSFWEnabled(){
+        return prefs.getBoolean(PREF_HIDE_NSFW_PREVIEW + Authentication.name, true);
+    }
     public static void resetSelftextEnabled(String subreddit) {
         prefs.edit().remove("cardtextenabled" + subreddit.toLowerCase()).apply();
     }

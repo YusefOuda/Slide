@@ -34,6 +34,7 @@ import net.dean.jraw.models.Submission;
 import java.net.URI;
 import java.net.URISyntaxException;
 
+import me.ccrama.redditslide.Authentication;
 import me.ccrama.redditslide.ContentType;
 import me.ccrama.redditslide.ForceTouch.PeekView;
 import me.ccrama.redditslide.ForceTouch.PeekViewActivity;
@@ -212,6 +213,11 @@ public class HeaderImageLinkView extends RelativeLayout {
                 thumbnailType = Submission.ThumbnailType.NONE;
             }
 
+            JsonNode node = submission.getDataNode();
+            if(!SettingValues.ignoreSubSetting && node != null && node.has("sr_detail") && node.get("sr_detail").has("show_media") && !node.get("sr_detail").get("show_media").asBoolean()){
+                thumbnailType = Submission.ThumbnailType.NONE;
+            }
+
             if (SettingValues.noImages && loadLq) {
                 setVisibility(View.GONE);
                 if (!full && !submission.isSelfPost()) {
@@ -223,7 +229,7 @@ public class HeaderImageLinkView extends RelativeLayout {
                         ContextCompat.getDrawable(getContext(), R.drawable.web));
                 thumbUsed = true;
             } else if (submission.isNsfw()
-                    && submission.getThumbnailType() == Submission.ThumbnailType.NSFW) {
+                    && SettingValues.getIsNSFWEnabled() || (baseSub != null && submission.isNsfw() && SettingValues.hideNSFWCollection && (baseSub.equals("frontpage") || baseSub.equals("all") || baseSub.equals("popular")) )) {
                 setVisibility(View.GONE);
                 if (!full || forceThumb) {
                     thumbImage2.setVisibility(View.VISIBLE);
@@ -424,7 +430,7 @@ public class HeaderImageLinkView extends RelativeLayout {
             } else if (!thumbnail.isNull()
                     && submission.getThumbnail() != null
                     && (submission.getThumbnailType() == Submission.ThumbnailType.URL || (!thumbnail
-                    .isNull() && submission.getThumbnailType() == Submission.ThumbnailType.NSFW))) {
+                    .isNull() && submission.isNsfw() && SettingValues.getIsNSFWEnabled()))) {
 
                 if (!full) {
                     thumbImage2.setVisibility(View.VISIBLE);
@@ -664,7 +670,7 @@ public class HeaderImageLinkView extends RelativeLayout {
                         .show((PeekViewActivity) activity, event);
             } else {
                 BottomSheet.Builder b = new BottomSheet.Builder(activity).title(url).grid();
-                int[] attrs = new int[]{R.attr.tint};
+                int[] attrs = new int[]{R.attr.tintColor};
                 TypedArray ta = getContext().obtainStyledAttributes(attrs);
 
                 int color = ta.getColor(0, Color.WHITE);

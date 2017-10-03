@@ -2,6 +2,8 @@ package me.ccrama.redditslide;
 
 import android.app.Activity;
 import android.app.Application;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -16,10 +18,12 @@ import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.Settings;
 import android.support.multidex.MultiDexApplication;
 import android.text.Html;
 import android.text.Spannable;
 import android.text.SpannableString;
+import android.text.TextUtils;
 import android.text.style.ForegroundColorSpan;
 import android.text.style.StyleSpan;
 import android.util.DisplayMetrics;
@@ -60,6 +64,7 @@ import me.ccrama.redditslide.Autocache.AutoCacheScheduler;
 import me.ccrama.redditslide.ImgurAlbum.AlbumUtils;
 import me.ccrama.redditslide.Notifications.NotificationJobScheduler;
 import me.ccrama.redditslide.Tumblr.TumblrUtils;
+import me.ccrama.redditslide.Visuals.Palette;
 import me.ccrama.redditslide.util.AdBlocker;
 import me.ccrama.redditslide.util.GifCache;
 import me.ccrama.redditslide.util.IabHelper;
@@ -80,7 +85,6 @@ public class Reddit extends MultiDexApplication implements Application.ActivityL
     public static final long   enter_animation_time_original = 600;
     public static final String PREF_LAYOUT                   = "PRESET";
     public static final String SHARED_PREF_IS_MOD            = "is_mod";
-    public static final String SHARED_PREF_IS_OVER_18        = "is_over_18";
 
     public static IabHelper mHelper;
     public static       SubmissionSearchPaginator.SearchSort search                          =
@@ -109,11 +113,10 @@ public class Reddit extends MultiDexApplication implements Application.ActivityL
     public static int                currentPosition;
     public static SharedPreferences  cachedData;
     public static final boolean noGapps = true; //for testing
-    public static       boolean over18  = true;
     public static boolean            overrideLanguage;
     public static boolean            isRestarting;
     public static AutoCacheScheduler autoCache;
-    public static boolean peek;
+    public static boolean            peek;
     private final List<Listener> listeners = new ArrayList<>();
     public        boolean      active;
     private       ImageLoader  defaultImageLoader;
@@ -438,7 +441,7 @@ public class Reddit extends MultiDexApplication implements Application.ActivityL
     @Override
     public void onActivityResumed(Activity activity) {
         doLanguages(activity);
-        if(client == null){
+        if (client == null) {
             OkHttpClient.Builder builder = new OkHttpClient.Builder();
             builder.dns(new GfycatIpv4Dns());
             client = builder.build();
@@ -647,7 +650,7 @@ public class Reddit extends MultiDexApplication implements Application.ActivityL
 
     public void doMainStuff() {
         Log.v(LogUtil.getTag(), "ON CREATED AGAIN");
-        if(client == null){
+        if (client == null) {
             client = new OkHttpClient();
         }
 
@@ -722,6 +725,8 @@ public class Reddit extends MultiDexApplication implements Application.ActivityL
         videoPlugin = isVideoPluginInstalled(this);
 
         GifCache.init(this);
+
+        setupNotificationChannels();
     }
 
     public void doLanguages(Context c) {
@@ -731,6 +736,115 @@ public class Reddit extends MultiDexApplication implements Application.ActivityL
             Configuration config = c.getResources().getConfiguration();
             config.locale = locale;
             c.getResources().updateConfiguration(config, null);
+        }
+    }
+
+    public boolean isAccessibilityEnabled(){
+        int accessibilityEnabled = 0;
+        final String ACCESSIBILITY_SERVICE_NAME = "me.ccrama.redditslide" + (BuildConfig.DEBUG ? ".debug" : "" )+ "/me.ccrama.redditslide.Notifications.NotificationPiggyback";
+        boolean accessibilityFound = false;
+        try {
+            accessibilityEnabled = Settings.Secure.getInt(this.getContentResolver(),android.provider.Settings.Secure.ACCESSIBILITY_ENABLED);
+        } catch (Settings.SettingNotFoundException e) {
+            e.printStackTrace();
+        }
+
+        TextUtils.SimpleStringSplitter mStringColonSplitter = new TextUtils.SimpleStringSplitter(':');
+
+        if (accessibilityEnabled==1){
+            String settingValue = Settings.Secure.getString(getContentResolver(), Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+            if (settingValue != null) {
+                TextUtils.SimpleStringSplitter splitter = mStringColonSplitter;
+                splitter.setString(settingValue);
+                while (splitter.hasNext()) {
+                    String accessabilityService = splitter.next();
+                    LogUtil.v(accessabilityService);
+                    if (accessabilityService.equalsIgnoreCase(ACCESSIBILITY_SERVICE_NAME)){
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return accessibilityFound;
+    }
+
+
+    public static String CHANNEL_IMG = "IMG_DOWNLOADS";
+    public static String CHANNEL_COMMENT_CACHE = "POST_SYNC";
+    public static String CHANNEL_MAIL = "MAIL";
+    public static String CHANNEL_MODMAIL = "MODMAIL";
+    public static String CHANNEL_SUBCHECKING = "SUB_CHECK";
+
+    public void setupNotificationChannels() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+
+            NotificationManager notificationManager =
+                    (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+
+            {
+                String channelId = CHANNEL_IMG;
+                int importance = NotificationManager.IMPORTANCE_LOW;
+                NotificationChannel notificationChannel =
+                        new NotificationChannel(channelId, "Image downloads", importance);
+                notificationChannel.enableLights(true);
+                notificationChannel.setShowBadge(false);
+
+                notificationChannel.setLightColor(Palette.getColor(""));
+                if (notificationManager != null) {
+                    notificationManager.createNotificationChannel(notificationChannel);
+                }
+            }
+            {
+                String channelId = CHANNEL_COMMENT_CACHE;
+                int importance = NotificationManager.IMPORTANCE_LOW;
+                NotificationChannel notificationChannel =
+                        new NotificationChannel(channelId, "Comment caching", importance);
+                notificationChannel.enableLights(true);
+                notificationChannel.setShowBadge(false);
+
+                notificationChannel.setLightColor(Palette.getColor(""));
+                if (notificationManager != null) {
+                    notificationManager.createNotificationChannel(notificationChannel);
+                }
+            }
+            {
+                String channelId = CHANNEL_MAIL;
+                int importance = NotificationManager.IMPORTANCE_HIGH;
+                NotificationChannel notificationChannel =
+                        new NotificationChannel(channelId, "Reddit mail", importance);
+                notificationChannel.enableLights(true);
+                notificationChannel.setShowBadge(true);
+                notificationChannel.setLightColor(Palette.getColor(""));
+                if (notificationManager != null) {
+                    notificationManager.createNotificationChannel(notificationChannel);
+                }
+            }
+            {
+                String channelId = CHANNEL_MODMAIL;
+                int importance = NotificationManager.IMPORTANCE_HIGH;
+                NotificationChannel notificationChannel =
+                        new NotificationChannel(channelId, "Reddit modmail", importance);
+                notificationChannel.enableLights(true);
+                notificationChannel.setShowBadge(true);
+                notificationChannel.setLightColor(getResources().getColor(R.color.md_red_500));
+                if (notificationManager != null) {
+                    notificationManager.createNotificationChannel(notificationChannel);
+                }
+            }
+            {
+                String channelId = CHANNEL_SUBCHECKING;
+                int importance = NotificationManager.IMPORTANCE_HIGH;
+                NotificationChannel notificationChannel =
+                        new NotificationChannel(channelId, "Submission post checking",
+                                importance);
+                notificationChannel.enableLights(true);
+                notificationChannel.setLightColor(Palette.getColor(""));
+                notificationChannel.setShowBadge(false);
+                if (notificationManager != null) {
+                    notificationManager.createNotificationChannel(notificationChannel);
+                }
+            }
         }
     }
 
@@ -783,19 +897,20 @@ public class Reddit extends MultiDexApplication implements Application.ActivityL
 
         @Override
         protected Void doInBackground(Void... params) {
-            if(mHelper == null)
-            try {
-                mHelper = new IabHelper(Reddit.this,
-                        SecretConstants.getBase64EncodedPublicKey(getBaseContext()));
-                mHelper.startSetup(new IabHelper.OnIabSetupFinishedListener() {
-                    public void onIabSetupFinished(IabResult result) {
-                        if (!result.isSuccess()) {
-                            LogUtil.e("Problem setting up In-app Billing: " + result);
+            if (mHelper == null) {
+                try {
+                    mHelper = new IabHelper(Reddit.this,
+                            SecretConstants.getBase64EncodedPublicKey(getBaseContext()));
+                    mHelper.startSetup(new IabHelper.OnIabSetupFinishedListener() {
+                        public void onIabSetupFinished(IabResult result) {
+                            if (!result.isSuccess()) {
+                                LogUtil.e("Problem setting up In-app Billing: " + result);
+                            }
                         }
-                    }
-                });
-            } catch (Exception ignored) {
-                ignored.printStackTrace();
+                    });
+                } catch (Exception ignored) {
+                    ignored.printStackTrace();
+                }
             }
             return null;
         }
